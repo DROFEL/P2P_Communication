@@ -1,0 +1,10 @@
+{
+    "action": "INIT_LOBBY"
+}
+
+{
+    "action": "CONNECT",
+    "payload": {
+        "lobbyId": "f13d"
+    }
+}
