@@ -12,7 +12,8 @@
   },
   "scripts": {
     "start": "tsc && node ./dist/index.js",
-    "client": "tsc && node ./dist/client.js"
+    "client": "tsc && node ./dist/client.js",
+    "build": "tsc && pkg dist/index.js --out-path build && pkg dist/client.js --out-path build"
   },
   "author": "",
   "license": "ISC",

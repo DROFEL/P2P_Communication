@@ -1,7 +1,5 @@
-import WebSocket = require("ws");
+import WebSocket from 'ws';
 import { Lobby } from "./types/Lobby";
-import { z } from "zod";
-import { Request } from "./types/Request";
 import { Message } from "./types/Message";
 
 const wss = new WebSocket.Server({ port: 9080 });
@@ -11,6 +9,10 @@ const lobbys = new Map<string, Lobby>();
 const connections = new Map<string, WebSocket>();
 
 let server: undefined | WebSocket = undefined 
+
+wss.on("listening", () => {
+    console.log("Started and ready for connections");
+});
 
 wss.on("connection", (ws, req) => {
 
