@@ -7,7 +7,8 @@ import { Message } from "./types/Message";
 const readline = require('readline');
 const rl = readline.createInterface({
     input: process.stdin,
-    output: process.stdout
+    output: process.stdout,
+    autoCommit: true
 });
 
 type Store = {
@@ -19,7 +20,6 @@ type Store = {
     }>
 }
 const store: Store = {
-    ws: new WebSocket('ws://localhost:9080'),
     name: `user${Math.floor(Math.random() * 1000)}`,
     connection: new Map<string, {
         peer: RTCPeerConnection,
@@ -27,9 +27,56 @@ const store: Store = {
     }>(),
 } as Store;
 
+function clearLastLine() {
+    readline.moveCursor(process.stdout, 0, -2);
+    rl.clearLine(process.stdout, 0);
+}
+
+console.log('\x1b[33mIncorrect address format! it has to be ws://*\x1b[0m');
+console.log('Input signaling server address: ');
 
 rl.on('line', (input: string) => {
-    const command: string[] = input.split(' ')    
+
+    const command: string[] = input.split(' ')
+
+    if (store.ws === undefined) {
+
+        if (command[0] === 'localhost') {
+            store.ws = new WebSocket('ws://localhost:9080');
+        } else if (command[0] === 'default') {
+            store.ws = new WebSocket('ws://localhost:9080')
+        } else if (!command[0].match('ws:\/\/.*')) {
+            console.log('\x1b[33mIncorrect address format! it has to be ws://*\x1b[0m');
+            return;
+        } else {
+            store.ws = new WebSocket(input);
+        }
+        rl.pause()
+        let i = 0;
+
+        const loadingMessage = setInterval(() => {
+            clearLastLine()
+            console.log('Connecting to ' + input + '.'.repeat(i) + '    '); // clearLine doesnt remove the text in the terminal, it just allows to override text in it
+            i = (i + 1) % 4;
+        }, 100)
+
+        store.ws.on('open', () => {
+            clearLastLine()
+            clearInterval(loadingMessage)
+            console.log(`\x1b[32mConnection with ${input} established!\x1b[0m`);
+            rl.resume()
+        })
+        store.ws.on('error', (e) => {
+            clearLastLine()
+            clearInterval(loadingMessage)
+            console.log(`\x1b[33mConnection to ${input} failed! Please try again:\x1b[0m`);
+            store.ws = undefined;
+            rl.resume()
+        })
+
+        return
+    }
+
 
     if (command[0][0] !== '/') {
         readline.moveCursor(process.stdout, 0, -2);
@@ -71,7 +118,7 @@ rl.on('line', (input: string) => {
                         })
 
                         peer.onicecandidate = (e) => {
-                            if(!e.candidate){
+                            if (!e.candidate) {
                                 store.ws?.send(JSON.stringify({
                                     action: 'SDP_RESPONSE',
                                     payload: {
@@ -139,7 +186,7 @@ rl.on('line', (input: string) => {
 
                         let candidatesent = false;
                         peer.onicecandidate = (e) => {
-                            if(!e.candidate && !candidatesent){
+                            if (!e.candidate && !candidatesent) {
                                 candidatesent = true;
                                 store.ws?.send(JSON.stringify({
                                     action: 'SDP_RESPONSE',

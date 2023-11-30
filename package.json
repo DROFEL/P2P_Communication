@@ -13,6 +13,7 @@
   "scripts": {
     "start": "tsc && node ./dist/index.js",
     "client": "tsc && node ./dist/client.js",
+    "client_debug": "tsc && node --inspect ./dist/client.js",
     "build": "tsc && pkg dist/index.js --out-path build && pkg dist/client.js --out-path build"
   },
   "author": "",
