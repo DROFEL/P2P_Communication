@@ -8,7 +8,8 @@ const readline = require('readline');
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    autoCommit: true
+    autoCommit: true,
+    prompt: '',
 });
 
 type Store = {
@@ -32,8 +33,9 @@ function clearLastLine() {
     rl.clearLine(process.stdout, 0);
 }
 
-console.log('\x1b[33mIncorrect address format! it has to be ws://*\x1b[0m');
+console.log('Welcome to the RTC chat client! Type /help for a list of commands.');
 console.log('Input signaling server address: ');
+rl.prompt()
 
 rl.on('line', (input: string) => {
 
@@ -64,7 +66,8 @@ rl.on('line', (input: string) => {
             clearLastLine()
             clearInterval(loadingMessage)
             console.log(`\x1b[32mConnection with ${input} established!\x1b[0m`);
-            rl.resume()
+            rl.setPrompt(`\x1b[36m${store.name}\x1b[0m: `);
+            rl.prompt();
         })
         store.ws.on('error', (e) => {
             clearLastLine()
@@ -79,15 +82,26 @@ rl.on('line', (input: string) => {
 
 
     if (command[0][0] !== '/') {
-        readline.moveCursor(process.stdout, 0, -2);
-        rl.clearLine(process.stdout, 0);
         Array.from(store.connection).forEach(([_, connection]) => {
             connection.dc?.send(`${store.name}: ${input}`)
         })
+        rl.prompt();
         return
     }
 
     switch (command[0]) {
+        case '/help': {
+            break;
+        }
+        case '/name': {
+            store.name = command[1];
+            rl.setPrompt(`\x1b[36m${store.name}\x1b[0m: `);
+            break;
+        }
+        case '/exit': {
+            rl.close();
+            break;
+        }
         case '/server': {
             command[1] && (store.name = command[1])
             store.ws?.send(JSON.stringify({
@@ -223,5 +237,8 @@ rl.on('line', (input: string) => {
 
         }
     }
-
+    rl.prompt();
+}).on('close', () => {
+    console.log('Have a great day!');
+    process.exit(0);
 });
