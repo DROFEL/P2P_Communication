@@ -23,6 +23,7 @@ jobs:
       with:
         node-version: 18
         cache: 'npm'
+    - run: npm i   
     - run: npm run build
     - uses: actions/upload-artifact@v3
     - name: upload executable windows
