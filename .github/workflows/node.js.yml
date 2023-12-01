@@ -12,17 +12,25 @@ on:
 jobs:
   build:
     runs-on: [ubuntu-latest, windows-latest]
-
-    strategy:
-      matrix:
-        node-version: [18.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
     steps:
     - uses: actions/checkout@v3
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 18
         cache: 'npm'
     - run: npm run build
+    - uses: actions/upload-artifact@v3
+    - name: upload executable windows
+      if: ${{runner.os == 'Windows'}} 
+      uses: actions/upload-artifact@v3
+      with:
+        name: client-win.exe
+        path: build/client-win.exe
+
+    - name: upload executable linux
+      if: ${{runner.os == 'Windows'}} 
+      uses: actions/upload-artifact@v3
+      with:
+        name: client-linux
+        path: build/client-linux
