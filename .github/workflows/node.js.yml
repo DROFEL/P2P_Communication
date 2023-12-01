@@ -23,7 +23,7 @@ jobs:
       with:
         node-version: 18
         cache: 'npm'
-    - run: npm i   
+    - run: npm i
     - run: npm run build
     - uses: actions/upload-artifact@v3
     - name: upload executable windows
@@ -31,11 +31,11 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: client-win.exe
-        path: build/client-win.exe
-
+        path: ./build/client-win.exe
+    - run: ls
     - name: upload executable linux
       if: ${{runner.os == 'Windows'}} 
       uses: actions/upload-artifact@v3
       with:
         name: client-linux
-        path: build/client-linux
+        path: ./build/client-linux
