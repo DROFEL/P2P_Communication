@@ -46,7 +46,7 @@ rl.on('line', (input: string) => {
         if (command[0] === 'localhost') {
             store.ws = new WebSocket('ws://localhost:9080');
         } else if (command[0] === 'default') {
-            store.ws = new WebSocket('ws://localhost:9080')
+            store.ws = new WebSocket('ws://34.67.194.13:9080')
         } else if (!command[0].match('ws:\/\/.*')) {
             console.log('\x1b[33mIncorrect address format! it has to be ws://*\x1b[0m');
             return;

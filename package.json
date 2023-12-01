@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "node-pre-gyp": "^0.17.0",
     "typescript": "^5.2.2",
     "undici-types": "^5.25.3",
     "wrtc": "^0.4.7",
