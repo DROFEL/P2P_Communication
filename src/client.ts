@@ -83,7 +83,7 @@ rl.on('line', (input: string) => {
 
     if (command[0][0] !== '/') {
         Array.from(store.connection).forEach(([_, connection]) => {
-            connection.dc?.send(`${store.name}: ${input}`)
+            connection.dc?.readyState === 'open' ? connection.dc?.send(`${store.name}: ${input}`) : null
         })
         rl.prompt();
         return
@@ -130,6 +130,8 @@ rl.on('line', (input: string) => {
                             peer: peer,
                             dc: dc,
                         })
+
+                        peer.oniceconnectionstatechange = e => console.log(peer.iceConnectionState);
 
                         peer.onicecandidate = (e) => {
                             if (!e.candidate) {
@@ -212,6 +214,8 @@ rl.on('line', (input: string) => {
                                 } as Message))
                             }
                         }
+
+                        peer.oniceconnectionstatechange = e => console.log(peer.iceConnectionState);
 
                         peer.setRemoteDescription(data.payload.offer).then(() => {
                             console.log('remote description set');
