@@ -113,9 +113,19 @@ rl.on('line', (input: string) => {
                 const data: Message = JSON.parse(message.toString());
                 switch (data.action) {
                     case 'CONNECTION_REQUEST': {
-
-                        const peer = new wrtc.RTCPeerConnection();
-
+                        console.log('creating server peer');
+                        
+                        const peer = new wrtc.RTCPeerConnection({
+                            iceServers: [
+                                {
+                                    urls: ['stun:stun.l.google.com:19302',
+                                        'stun:stun1.l.google.com:19302',
+                                        'stun:stun2.l.google.com:19302',
+                                        'stun:stun3.l.google.com:19302',
+                                        'stun:stun4.l.google.com:19302']
+                                }
+                            ]
+                        });
                         const dc = peer.createDataChannel('dataChannel');
                         dc.onopen = () => {
                             console.log(`${data.payload.name} connected!`);
@@ -185,7 +195,17 @@ rl.on('line', (input: string) => {
                     case 'SDP_RESPONSE': {
                         console.log('got initial offer from server');
 
-                        const peer = new wrtc.RTCPeerConnection();
+                        const peer = new wrtc.RTCPeerConnection({
+                            iceServers: [
+                                {
+                                    urls: ['stun:stun.l.google.com:19302',
+                                        'stun:stun1.l.google.com:19302',
+                                        'stun:stun2.l.google.com:19302',
+                                        'stun:stun3.l.google.com:19302',
+                                        'stun:stun4.l.google.com:19302']
+                                }
+                            ]
+                        });
                         peer.ondatachannel = (e) => {
                             const dc = e.channel;
                             dc.onopen = () => {
@@ -193,6 +213,9 @@ rl.on('line', (input: string) => {
                             }
                             dc.onmessage = (e) => {
                                 console.log(e.data);
+                            }
+                            dc.onerror = (e) => {
+                                console.log(e);
                             }
                             store.connection.set('server', {
                                 peer: peer,
