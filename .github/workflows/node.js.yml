@@ -18,24 +18,25 @@ jobs:
         
     steps:
     - uses: actions/checkout@v3
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js
       uses: actions/setup-node@v3
       with:
         node-version: 18
         cache: 'npm'
-    - run: npm i   
-    - run: npm run build
-    - uses: actions/upload-artifact@v3
+    - name: Install dependencies
+      run: npm ci
+    - name: Building
+      run: npm run build
     - name: upload executable windows
       if: ${{runner.os == 'Windows'}} 
       uses: actions/upload-artifact@v3
       with:
         name: client-win.exe
-        path: build/client-win.exe
-
+        path: ./build/client-win.exe
+    - run: ls
     - name: upload executable linux
-      if: ${{runner.os == 'Windows'}} 
+      if: ${{runner.os == 'Linux'}} 
       uses: actions/upload-artifact@v3
       with:
         name: client-linux
-        path: build/client-linux
+        path: ./build/client-linux
