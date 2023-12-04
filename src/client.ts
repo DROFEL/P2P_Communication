@@ -1,5 +1,4 @@
 import { WebSocket } from "ws";
-import { Request, RequestZod } from "./types/Request";
 // import { RTCPeerConnection, RTCDataChannel } from 'wrtc';
 import wrtc from 'wrtc';
 import { Message } from "./types/Message";
@@ -14,15 +13,16 @@ const rl = readline.createInterface({
 
 type Store = {
     ws: WebSocket | undefined,
+    id: number,
     name: string,
-    connection: Map<string, {
+    connection: Map<number, {
         peer: RTCPeerConnection,
         dc: RTCDataChannel | undefined,
     }>
 }
 const store: Store = {
     name: `user${Math.floor(Math.random() * 1000)}`,
-    connection: new Map<string, {
+    connection: new Map<number, {
         peer: RTCPeerConnection,
         dc: RTCDataChannel | undefined,
     }>(),
@@ -114,7 +114,7 @@ rl.on('line', (input: string) => {
                 switch (data.action) {
                     case 'CONNECTION_REQUEST': {
                         console.log('creating server peer');
-                        
+
                         const peer = new wrtc.RTCPeerConnection({
                             iceServers: [
                                 {
@@ -126,121 +126,37 @@ rl.on('line', (input: string) => {
                                 }
                             ]
                         });
-                        const dc = peer.createDataChannel('dataChannel');
-                        dc.onopen = () => {
-                            console.log(`${data.payload.name} connected!`);
-                        }
-                        dc.onmessage = (e) => {
-                            console.log(`${e.data}`);
-                            Array.from(store.connection).forEach((connection) => {
-                                connection[1].dc?.send(e.data)
-                            })
-                        }
-                        store.connection.set(data.payload.name, {
+                        peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
+                        peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
+                        peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
+                        peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
+                        peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
+                        store.connection.set(data.payload.id, {
                             peer: peer,
-                            dc: dc,
+                            dc: undefined,
                         })
-
-                        peer.oniceconnectionstatechange = e => console.log(peer.iceConnectionState);
-
-                        peer.onicecandidate = (e) => {
-                            if (!e.candidate) {
-                                store.ws?.send(JSON.stringify({
-                                    action: 'SDP_RESPONSE',
-                                    payload: {
-                                        target: data.payload.name,
-                                        name: 'server',
-                                        offer: peer.localDescription
-                                    }
-                                } as Message))
-                            }
-                        }
-
-                        peer.createOffer().then((offer) => {
-                            peer.setLocalDescription(offer).then(() => {
-                                console.log('local description set');
-                            })
-                        })
-                        break;
-                    }
-                    case 'SDP_RESPONSE': {
-                        console.log('got sdp response from ' + data.payload.name);
-
-                        store.connection.get(data.payload.name)?.peer.setRemoteDescription(data.payload.offer).then(() => {
-                            console.log('remote description set');
-                        })
-                        break;
-                    }
-                    default: {
-                        console.log('Unrecognized action type!')
-                    }
-                }
-            });
-
-            break;
-        }
-        case '/connect': {
-            store.ws?.send(JSON.stringify({
-                action: 'CONNECTION_REQUEST',
-                payload: {
-                    name: command[1]
-                }
-            } as Message))
-
-            store.name = command[1];
-
-            store.ws?.on('message', (message: string) => {
-                const data: Message = JSON.parse(message.toString());
-                switch (data.action) {
-                    case 'SDP_RESPONSE': {
-                        console.log('got initial offer from server');
-
-                        const peer = new wrtc.RTCPeerConnection({
-                            iceServers: [
-                                {
-                                    urls: ['stun:stun.l.google.com:19302',
-                                        'stun:stun1.l.google.com:19302',
-                                        'stun:stun2.l.google.com:19302',
-                                        'stun:stun3.l.google.com:19302',
-                                        'stun:stun4.l.google.com:19302']
-                                }
-                            ]
-                        });
                         peer.ondatachannel = (e) => {
+                            console.log('data channel created');
                             const dc = e.channel;
                             dc.onopen = () => {
                                 console.log(`${data.payload.name} connected!`);
                             }
                             dc.onmessage = (e) => {
-                                console.log(e.data);
+                                console.log(`${e.data}`);
+                                Array.from(store.connection).forEach((connection) => {
+                                    connection[1].dc?.send(e.data)
+                                })
                             }
                             dc.onerror = (e) => {
                                 console.log(e);
                             }
-                            store.connection.set('server', {
-                                peer: peer,
+                            store.connection.set(data.payload.id, {
+                                peer: store.connection.get(data.payload.id)?.peer as RTCPeerConnection,
                                 dc: dc,
-                            });
+                            })
                         }
 
-                        let candidatesent = false;
-                        peer.onicecandidate = (e) => {
-                            if (!e.candidate && !candidatesent) {
-                                candidatesent = true;
-                                store.ws?.send(JSON.stringify({
-                                    action: 'SDP_RESPONSE',
-                                    payload: {
-                                        target: 'server',
-                                        name: store.name,
-                                        offer: peer.localDescription
-                                    }
-                                } as Message))
-                            }
-                        }
-
-                        peer.oniceconnectionstatechange = e => console.log(peer.iceConnectionState);
-
-                        peer.setRemoteDescription(data.payload.offer).then(() => {
+                        peer.setRemoteDescription(data.payload.initOffer).then(() => {
                             console.log('remote description set');
 
                             peer.createAnswer().then((answer) => {
@@ -248,12 +164,135 @@ rl.on('line', (input: string) => {
 
                                 peer.setLocalDescription(answer).then(() => {
                                     console.log('local description set');
+                                    store.ws?.send(JSON.stringify({
+                                        action: 'CONNECTION_RESPONSE',
+                                        payload: {
+                                            name: store.name,
+                                            id: store.id,
+                                            target: data.payload.id,
+                                            serverOffer: peer.localDescription
+                                        }
+                                    } as Message))
                                 });
 
+                                peer.onicecandidate = (e) => {
+                                    store.ws?.send(JSON.stringify({
+                                        action: 'SDP_RESPONSE',
+                                        payload: {
+                                            target: data.payload.id,
+                                            id: store.id,
+                                            offer: e.candidate
+                                        }
+                                    } as Message))
+                                }
                             })
                         })
 
                         break;
+                    }
+                    case 'SDP_RESPONSE': {
+                        if (data.payload.offer === null) return;
+
+                        console.log('got sdp response from ' + data.payload.id);
+                        store.connection.get(data.payload.id)?.peer.addIceCandidate(data.payload.offer)
+                        break;
+                    }
+                    case 'SERVER_INIT_RESPONSE': {
+                        store.id = data.payload.id;
+                        console.log('server initialized with id ' + store.id);
+                        break;
+                    }
+                    default: {
+                        console.log('Unrecognized action type! ' + data.action)
+                        console.log(data);
+                    }
+                }
+            });
+
+            break;
+        }
+        case '/connect': {
+            store.name = command[1];
+
+            const peer = new wrtc.RTCPeerConnection({
+                iceServers: [
+                    {
+                        urls: ['stun:stun.l.google.com:19302',
+                            'stun:stun1.l.google.com:19302',
+                            'stun:stun2.l.google.com:19302',
+                            'stun:stun3.l.google.com:19302',
+                            'stun:stun4.l.google.com:19302']
+                    }
+                ]
+            });
+            const dc = peer.createDataChannel('messageChannel');
+            store.connection.set(0, {
+                peer: peer,
+                dc: dc,
+            });
+
+            peer.createOffer().then((offer) => {
+                peer.setLocalDescription(offer).then(() => {
+                    console.log('local description set');
+                    store.ws?.send(JSON.stringify({
+                        action: 'CONNECTION_REQUEST',
+                        payload: {
+                            name: store.name,
+                            id: 0,
+                            initOffer: peer.localDescription
+                        }
+                    } as Message))
+                })
+            })
+
+            peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
+            peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
+            peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
+            peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
+            peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
+
+            store.ws?.on('message', (message: string) => {
+                const data: Message = JSON.parse(message.toString());
+                switch (data.action) {
+                    case 'SDP_RESPONSE': {
+
+                        if (data.payload.offer === null) return;
+
+                        console.log('got ice from ' + data.payload.id);
+                        peer.addIceCandidate(data.payload.offer);
+                        break;
+                    }
+                    case 'CONNECTION_RESPONSE': {
+                        store.id = data.payload.target;
+                        console.log('set global id ' + data.payload.target);
+                        const serverId = data.payload.id;
+                        console.log('got connection response from ' + data.payload.id);
+
+                        peer.setRemoteDescription(data.payload.serverOffer)
+
+                        peer.onicecandidate = (e) => {
+                            store.ws?.send(JSON.stringify({
+                                action: 'SDP_RESPONSE',
+                                payload: {
+                                    target: serverId,
+                                    id: store.id,
+                                    offer: e.candidate
+                                }
+                            } as Message))
+                        }
+
+                        dc.onopen = () => {
+                            console.log(`${data.payload.name} connected!`);
+                        }
+                        dc.onmessage = (e) => {
+                            console.log(e.data);
+                        }
+                        dc.onerror = (e) => {
+                            console.log(e);
+                        }
+
+                        break;
+
                     }
                 }
             })
