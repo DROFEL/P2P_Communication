@@ -126,11 +126,11 @@ rl.on('line', (input: string) => {
                                 }
                             ]
                         });
-                        // peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
-                        // peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
-                        // peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
-                        // peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
-                        // peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
+                        peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
+                        peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
+                        peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
+                        peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
+                        peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
                         store.connection.set(data.payload.id, {
                             peer: peer,
                             dc: undefined,
@@ -245,11 +245,11 @@ rl.on('line', (input: string) => {
                 })
             })
 
-            // peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
-            // peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
-            // peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
-            // peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
-            // peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
+            peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
+            peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
+            peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
+            peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
+            peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
 
             store.ws?.on('message', (message: string) => {
                 const data: Message = JSON.parse(message.toString());
