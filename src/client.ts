@@ -122,15 +122,28 @@ rl.on('line', (input: string) => {
                                         'stun:stun1.l.google.com:19302',
                                         'stun:stun2.l.google.com:19302',
                                         'stun:stun3.l.google.com:19302',
-                                        'stun:stun4.l.google.com:19302']
+                                        'stun:stun4.l.google.com:19302',
+                                        'stun:stun.1und1.de:3478',
+                                        'stun:stun.gmx.net:3478',
+                                        'stun:23.21.150.121:3478',
+                                        'stun:iphone-stun.strato-iphone.de:3478',
+                                        'stun:numb.viagenie.ca:3478',
+                                        'stun:stun.12connect.com:3478',
+                                        'stun:stun.12voip.com:3478',
+                                        'stun:stun.cheapvoip.com:3478',
+                                        'stun:stun.develz.org:3478',
+                                        'stun:stun.ipcomms.net:3478',
+                                    ]
                                 }
                             ]
                         });
-                        peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
-                        peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
-                        peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
-                        peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
+
+                        peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
+                        peer.onicecandidateerror = (e) => { console.log('ice candidate error: '); console.log(e); }
+                        peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
+                        peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
                         peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
+
                         store.connection.set(data.payload.id, {
                             peer: peer,
                             dc: undefined,
@@ -148,6 +161,8 @@ rl.on('line', (input: string) => {
                                 })
                             }
                             dc.onerror = (e) => {
+                                console.log('DC error occured!');
+                                console.log(dc.readyState);
                                 console.log(e);
                             }
                             store.connection.set(data.payload.id, {
@@ -176,6 +191,8 @@ rl.on('line', (input: string) => {
                                 });
 
                                 peer.onicecandidate = (e) => {
+                                    console.log(e.candidate);
+
                                     store.ws?.send(JSON.stringify({
                                         action: 'SDP_RESPONSE',
                                         payload: {
@@ -191,9 +208,11 @@ rl.on('line', (input: string) => {
                         break;
                     }
                     case 'SDP_RESPONSE': {
+                        console.log(data.payload.offer);
                         if (data.payload.offer === null) return;
 
                         console.log('got sdp response from ' + data.payload.id);
+
                         store.connection.get(data.payload.id)?.peer.addIceCandidate(data.payload.offer)
                         break;
                     }
@@ -221,7 +240,18 @@ rl.on('line', (input: string) => {
                             'stun:stun1.l.google.com:19302',
                             'stun:stun2.l.google.com:19302',
                             'stun:stun3.l.google.com:19302',
-                            'stun:stun4.l.google.com:19302']
+                            'stun:stun4.l.google.com:19302',
+                            'stun:stun.1und1.de:3478',
+                            'stun:stun.gmx.net:3478',
+                            'stun:23.21.150.121:3478',
+                            'stun:iphone-stun.strato-iphone.de:3478',
+                            'stun:numb.viagenie.ca:3478',
+                            'stun:stun.12connect.com:3478',
+                            'stun:stun.12voip.com:3478',
+                            'stun:stun.cheapvoip.com:3478',
+                            'stun:stun.develz.org:3478',
+                            'stun:stun.ipcomms.net:3478',
+                        ]
                     }
                 ]
             });
@@ -245,17 +275,17 @@ rl.on('line', (input: string) => {
                 })
             })
 
-            peer.onconnectionstatechange = (e) => { console.log('connection state change ' + e); }
-            peer.onicecandidateerror = (e) => { console.log('ice candidate error ' + e); }
-            peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + e); }
-            peer.onsignalingstatechange = (e) => { console.log('signaling state change ' + e); }
+            peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
+            peer.onicecandidateerror = (e) => { console.log('ice candidate error: '); console.log(e); }
+            peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
+            peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
             peer.onnegotiationneeded = (e) => { console.log('negotiation needed ' + e); }
 
             store.ws?.on('message', (message: string) => {
                 const data: Message = JSON.parse(message.toString());
                 switch (data.action) {
                     case 'SDP_RESPONSE': {
-
+                        console.log(data.payload.offer);
                         if (data.payload.offer === null) return;
 
                         console.log('got ice from ' + data.payload.id);
@@ -271,6 +301,7 @@ rl.on('line', (input: string) => {
                         peer.setRemoteDescription(data.payload.serverOffer)
 
                         peer.onicecandidate = (e) => {
+                            console.log(e.candidate);
                             store.ws?.send(JSON.stringify({
                                 action: 'SDP_RESPONSE',
                                 payload: {
@@ -288,6 +319,8 @@ rl.on('line', (input: string) => {
                             console.log(e.data);
                         }
                         dc.onerror = (e) => {
+                            console.log('DC error occured!');
+                            console.log(dc.readyState);
                             console.log(e);
                         }
 
