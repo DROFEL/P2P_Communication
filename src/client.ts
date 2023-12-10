@@ -2,6 +2,7 @@ import { WebSocket } from "ws";
 // import { RTCPeerConnection, RTCDataChannel } from 'wrtc';
 import wrtc from 'wrtc';
 import { Message } from "./types/Message";
+import { RTCMessage } from "./types/RTCMessage";
 
 const readline = require('readline');
 const rl = readline.createInterface({
@@ -33,12 +34,26 @@ function clearLastLine() {
     rl.clearLine(process.stdout, 0);
 }
 
+function log(msg: string) {
+    console.log(msg);
+    rl.prompt();
+}
+
+function printMessage(data: RTCMessage) {
+    rl.setPrompt(`\x1b[35m${data.name}\x1b[0m: `);
+    rl.prompt();
+    console.log(`${data.message}`);
+    rl.setPrompt(`\x1b[36m${store.name}\x1b[0m: `);
+    rl.prompt();
+}
+
 console.log('Welcome to the RTC chat client! Type /help for a list of commands.');
 console.log('Input signaling server address: ');
 rl.prompt()
 
 rl.on('line', (input: string) => {
 
+    rl.prompt();
     const command: string[] = input.split(' ')
 
     if (store.ws === undefined) {
@@ -80,10 +95,13 @@ rl.on('line', (input: string) => {
         return
     }
 
-
     if (command[0][0] !== '/') {
         Array.from(store.connection).forEach(([_, connection]) => {
-            connection.dc?.readyState === 'open' ? connection.dc?.send(`${store.name}: ${input}`) : null
+            connection.dc?.readyState === 'open' ? connection.dc?.send(JSON.stringify({
+                name: store.name,
+                message: input,
+                senderId: store.id
+            } as RTCMessage)) : null
         })
         rl.prompt();
         return
@@ -129,7 +147,7 @@ rl.on('line', (input: string) => {
                             ]
                         });
                         // console.log('initial connection state' + peer.connectionState);
-                        
+
 
                         // peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
                         // peer.onicecandidateerror = (e) => { console.log('ice candidate error '); }
@@ -148,9 +166,10 @@ rl.on('line', (input: string) => {
                                 console.log(`${data.payload.name} connected!`);
                             }
                             dc.onmessage = (e) => {
-                                console.log(`${e.data}`);
+                                const data = JSON.parse(e.data.toString()) as RTCMessage;
+                                printMessage(data);
                                 Array.from(store.connection).forEach((connection) => {
-                                    connection[1].dc?.send(e.data)
+                                    if (connection[0] !== data.senderId) connection[1].dc?.send(e.data)
                                 })
                             }
                             dc.onerror = (e) => {
@@ -208,10 +227,10 @@ rl.on('line', (input: string) => {
                         candidates.push(data.payload.offer);
                         if (remoteDescriptionSet) {
                             while (candidates.length > 0) {
-                                if(candidates[0] !== null) {
+                                if (candidates[0] !== null) {
                                     peer.addIceCandidate(candidates[0])
                                 }
-                                console.log(peer.remoteDescription);
+                                // console.log(peer.remoteDescription);
                                 candidates.shift();
                             }
                         }
@@ -229,8 +248,8 @@ rl.on('line', (input: string) => {
 
                         // console.log('got sdp response from ' + data.payload.id);
                         // console.log(store.connection.get(data.payload.id)?.peer.remoteDescription);
-                        
-                        
+
+
 
                         // store.connection.get(data.payload.id)?.peer.addIceCandidate(data.payload.offer)
                         break;
@@ -250,7 +269,7 @@ rl.on('line', (input: string) => {
             break;
         }
         case '/connect': {
-            store.name = command[1];
+            command[1] && (store.name = command[1])
 
             const peer = new wrtc.RTCPeerConnection({
                 iceServers: [
@@ -302,14 +321,14 @@ rl.on('line', (input: string) => {
                         candidates.push(data.payload.offer);
                         if (remoteDescriptionSet) {
                             while (candidates.length > 0) {
-                                if(candidates[0] !== null) {
+                                if (candidates[0] !== null) {
                                     peer.addIceCandidate(candidates[0])
                                 }
-                                console.log(peer.remoteDescription);
+                                // console.log(peer.remoteDescription);
                                 candidates.shift();
                             }
                         }
-                        
+
                         // console.log('offer reviced from ' + data.payload.id);
                         // console.log('Signaling state: ' + peer.signalingState)
                         // if (data.payload.offer === null) return;
@@ -317,7 +336,7 @@ rl.on('line', (input: string) => {
                         // console.log('got ice from ' + data.payload.id);
                         // peer.addIceCandidate(data.payload.offer);
                         // console.log(peer.remoteDescription);
-                        
+
                         break;
                     }
                     case 'CONNECTION_RESPONSE': {
@@ -341,10 +360,14 @@ rl.on('line', (input: string) => {
                         }
 
                         dc.onopen = () => {
-                            console.log(`${data.payload.name} connected!`);
+                            rl.setPrompt(``);
+                            log(`${data.payload.name} connected!`);
+                            rl.setPrompt(`\x1b[36m${store.name}\x1b[0m: `);
+                            rl.prompt();
                         }
                         dc.onmessage = (e) => {
-                            console.log(e.data);
+                            const data = JSON.parse(e.data.toString()) as RTCMessage;
+                            printMessage(data);
                         }
                         dc.onerror = (e) => {
                             console.log('DC error occured!');

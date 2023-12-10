@@ -9,12 +9,14 @@ const Example = z.object({
 });
 
 
-const Message = z.object({
+const RTCMessage = z.object({
+  name: z.string(),
   message: z.string(),
+  senderId: z.number(),
 });
 
 
 
-export const RTCMessageZod = z.union([Message, Example]);
+export const RTCMessageZod = z.union([RTCMessage, Example]);
 
-export type RTCMessage = z.infer<typeof RTCMessageZod>;
+export type RTCMessage = z.infer<typeof RTCMessage>;
