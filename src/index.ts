@@ -8,7 +8,7 @@ const lobbys = new Map<string, Lobby>();
 
 const connections = new Map<number, WebSocket>();
 
-let server: undefined | WebSocket = undefined
+// let server: undefined | WebSocket = undefined
 
 wss.on("listening", () => {
     console.log("Started and ready for connections");
@@ -46,7 +46,9 @@ wss.on("connection", (ws, req) => {
             case "CONNECTION_REQUEST": {
                 console.log('connection request received and forwarded to server id: ' + id);
                 data.payload.id = id
-                server?.send(JSON.stringify(data))
+                const lobby = lobbys.get(data.payload.lobbyID)
+                lobby ? lobby.owner.send(JSON.stringify(data)) : ws.send(JSON.stringify({ action: "CONNECTION_RESPONSE", payload: { target: id, id: data.payload.id, error: `Lobby with ${data.payload.lobbyID} doesnt exist!` } } as Message))
+                // server?.send(JSON.stringify(data))
                 break;
             }
             case "CONNECTION_RESPONSE": {
@@ -60,9 +62,16 @@ wss.on("connection", (ws, req) => {
                 break;
             }
             case "SERVER_INIT": {
-                server = ws;
-                ws.send(JSON.stringify({ action: "SERVER_INIT_RESPONSE", payload: { id: id } } as Message));
-                console.log('server initialized');
+                // server = ws;
+                do{
+                    lobbyID = Math.random().toString(36).substring(7)
+                }
+                while (lobbyID in lobbys)
+
+                lobbys.set(lobbyID, { owner: ws } )
+
+                ws.send(JSON.stringify({ action: "SERVER_INIT_RESPONSE", payload: { id: id, lobbyID } } as Message));
+                console.log(`Server initialized by ${id} and with lobby id: ${lobbyID}`);
                 break;
             }
             default: {

@@ -14,6 +14,7 @@ const CONNECTION_REQUEST = z.object({
   payload: z.object({
     name: z.string(),
     id: z.number(),
+    lobbyID: z.string(),
     initOffer: z.custom<RTCSessionDescriptionInit>(() => true),
   }),
 });
@@ -25,6 +26,7 @@ const CONNECTION_RESPONSE = z.object({
     id: z.number(),
     target: z.number(),
     serverOffer: z.custom<RTCSessionDescriptionInit>(() => true),
+    error: z.string().optional(),
   }),
 });
 
@@ -47,6 +49,7 @@ const SERVER_INIT_RESPONSE = z.object({
   action: z.enum(["SERVER_INIT_RESPONSE"]),
   payload: z.object({
     id: z.number().positive(),
+    lobbyID: z.string(),
   }),
 });
 

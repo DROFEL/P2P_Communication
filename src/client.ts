@@ -16,6 +16,7 @@ type Store = {
     ws: WebSocket | undefined,
     id: number,
     name: string,
+    lobbyID: string,
     connection: Map<number, {
         peer: RTCPeerConnection,
         dc: RTCDataChannel | undefined,
@@ -256,7 +257,9 @@ rl.on('line', (input: string) => {
                     }
                     case 'SERVER_INIT_RESPONSE': {
                         store.id = data.payload.id;
-                        // console.log('server initialized with id ' + store.id);
+                        store.lobbyID = data.payload.lobbyID;
+                        console.log('Server successfully initialized with id: ' + store.lobbyID);
+                        console.log('Send this id to your friends so they can connect to your server!');
                         break;
                     }
                     default: {
@@ -269,7 +272,11 @@ rl.on('line', (input: string) => {
             break;
         }
         case '/connect': {
-            command[1] && (store.name = command[1])
+            command[2] && (store.name = command[2])
+            if(command[1] === undefined) {
+                console.log('You have to specify the lobby id you want to connect to!');
+                return;
+            }
 
             const peer = new wrtc.RTCPeerConnection({
                 iceServers: [
@@ -296,6 +303,7 @@ rl.on('line', (input: string) => {
                         action: 'CONNECTION_REQUEST',
                         payload: {
                             name: store.name,
+                            lobbyID: command[1],
                             id: 0,
                             initOffer: peer.localDescription
                         }
@@ -340,6 +348,12 @@ rl.on('line', (input: string) => {
                         break;
                     }
                     case 'CONNECTION_RESPONSE': {
+
+                        if(data.payload.error) {
+                            log(data.payload.error);
+                            return;
+                        }
+
                         store.id = data.payload.target;
                         // console.log('set global id ' + data.payload.target);
                         const serverId = data.payload.id;
