@@ -147,14 +147,14 @@ rl.on('line', (input: string) => {
                                 }
                             ]
                         });
-                        // console.log('initial connection state' + peer.connectionState);
+                        console.log('initial connection state' + peer.connectionState);
 
 
-                        // peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
-                        // peer.onicecandidateerror = (e) => { console.log('ice candidate error '); }
-                        // peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
-                        // peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
-                        // peer.onnegotiationneeded = (e) => { console.log('negotiation needed '); }
+                        peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
+                        peer.onicecandidateerror = (e) => { console.log('ice candidate error '); }
+                        peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
+                        peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
+                        peer.onnegotiationneeded = (e) => { console.log('negotiation needed '); }
 
                         store.connection.set(data.payload.id, {
                             peer: peer,
@@ -185,13 +185,13 @@ rl.on('line', (input: string) => {
                         }
 
                         peer.setRemoteDescription(data.payload.initOffer).then(() => {
-                            // console.log('remote description set');
+                            console.log('remote description set');
 
                             peer.createAnswer().then((answer) => {
-                                // console.log('answer created');
+                                console.log('answer created');
 
                                 peer.setLocalDescription(answer).then(() => {
-                                    // console.log('local description set');
+                                    console.log('local description set');
                                     store.ws?.send(JSON.stringify({
                                         action: 'CONNECTION_RESPONSE',
                                         payload: {
@@ -205,16 +205,18 @@ rl.on('line', (input: string) => {
                                 });
 
                                 peer.onicecandidate = (e) => {
-                                    // console.log('candidate found');
-
-                                    store.ws?.send(JSON.stringify({
-                                        action: 'SDP_RESPONSE',
-                                        payload: {
-                                            target: data.payload.id,
-                                            id: store.id,
-                                            offer: e.candidate
-                                        }
-                                    } as Message))
+                                    console.log('candidate found');
+                                    e.candidate && candidates.push(e.candidate);
+                                    if (e.candidate === null) {
+                                        store.ws?.send(JSON.stringify({
+                                            action: 'SDP_RESPONSE',
+                                            payload: {
+                                                target: data.payload.id,
+                                                id: store.id,
+                                                offer: candidates
+                                            }
+                                        } as Message))
+                                    }
                                 }
                             })
                         })
@@ -223,36 +225,32 @@ rl.on('line', (input: string) => {
                     }
                     case 'SDP_RESPONSE': {
                         const peer = store.connection.get(data.payload.id)?.peer!
-                        // console.log('offer reviced from ' + data.payload.id);
-                        // console.log('Signaling state: ' + peer.signalingState)
-                        candidates.push(data.payload.offer);
-                        if (remoteDescriptionSet) {
-                            while (candidates.length > 0) {
-                                if (candidates[0] !== null) {
-                                    peer.addIceCandidate(candidates[0])
-                                }
-                                // console.log(peer.remoteDescription);
-                                candidates.shift();
-                            }
-                        }
-                        // if (data.payload.offer !== null) {
-                        //     candidates.push(data.payload.offer);
-                        // } else {
+                        console.log('ice candidate reviced from ' + data.payload.id);
+                        console.log('Signaling state: ' + peer.signalingState)
+                        // candidates.push(data.payload.offer);
+                        // if (remoteDescriptionSet) {
+                        //     console.log('processing candidates...');
                         //     while (candidates.length > 0) {
-                        //         store.connection.get(data.payload.id)?.peer.addIceCandidate(candidates[0])
+                        //         if (candidates[0] !== null) {
+                        //             peer.addIceCandidate(candidates[0])
+                        //         }
+                        //         console.log(peer.remoteDescription);
                         //         candidates.shift();
                         //     }
                         // }
+                        console.log(data.payload.offer);
+                        if (data.payload.offer) {
+                            peer.addIceCandidate(data.payload.offer)
+                                .then(() => {
+                                    console.log("Candidate added successfully")
+                                    console.log(data.payload.offer);
+                                    console.log(peer.remoteDescription)
+                                })
+                                .catch(e => console.error("Error adding received candidate", e));
+                        } else {
+                            // peer.addIceCandidate({ candidate: "" });
+                        }
 
-                        // console.log('offer reviced from ' + data.payload.id);
-                        // if (data.payload.offer === null) return;
-
-                        // console.log('got sdp response from ' + data.payload.id);
-                        // console.log(store.connection.get(data.payload.id)?.peer.remoteDescription);
-
-
-
-                        // store.connection.get(data.payload.id)?.peer.addIceCandidate(data.payload.offer)
                         break;
                     }
                     case 'SERVER_INIT_RESPONSE': {
@@ -273,7 +271,7 @@ rl.on('line', (input: string) => {
         }
         case '/connect': {
             command[2] && (store.name = command[2])
-            if(command[1] === undefined) {
+            if (command[1] === undefined) {
                 console.log('You have to specify the lobby id you want to connect to!');
                 return;
             }
@@ -298,7 +296,7 @@ rl.on('line', (input: string) => {
 
             peer.createOffer().then((offer) => {
                 peer.setLocalDescription(offer).then(() => {
-                    // console.log('local description set');
+                    console.log('local description set');
                     store.ws?.send(JSON.stringify({
                         action: 'CONNECTION_REQUEST',
                         payload: {
@@ -311,11 +309,11 @@ rl.on('line', (input: string) => {
                 })
             })
 
-            // peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
-            // peer.onicecandidateerror = (e) => { console.log('ice candidate error '); }
-            // peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
-            // peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
-            // peer.onnegotiationneeded = (e) => { console.log('negotiation needed '); }
+            peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
+            peer.onicecandidateerror = (e) => { console.log('ice candidate error '); }
+            peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
+            peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
+            peer.onnegotiationneeded = (e) => { console.log('negotiation needed '); }
 
 
             let candidates = new Array<RTCIceCandidateInit>();
@@ -324,45 +322,49 @@ rl.on('line', (input: string) => {
                 const data: Message = JSON.parse(message.toString());
                 switch (data.action) {
                     case 'SDP_RESPONSE': {
-                        // console.log('offer reviced from ' + data.payload.id);
-                        // console.log('Signaling state: ' + peer.signalingState)
-                        candidates.push(data.payload.offer);
-                        if (remoteDescriptionSet) {
-                            while (candidates.length > 0) {
-                                if (candidates[0] !== null) {
-                                    peer.addIceCandidate(candidates[0])
-                                }
-                                // console.log(peer.remoteDescription);
-                                candidates.shift();
-                            }
+                        console.log('ice candidate reviced from ' + data.payload.id);
+                        console.log('Signaling state: ' + peer.signalingState)
+                        // candidates.push(data.payload.offer);
+                        // if (remoteDescriptionSet) {
+                        //     console.log('processing candidates...');
+                        //     while (candidates.length > 0) {
+                        //         if (candidates[0] !== null) {
+                        //             peer.addIceCandidate(candidates[0])
+                        //         }
+                        //         console.log(peer.remoteDescription);
+                        //         candidates.shift();
+                        //     }
+                        // }
+                        console.log(data.payload.offer);
+                        if (data.payload.offer) {
+                            peer.addIceCandidate(data.payload.offer)
+                                .then(() => {
+                                    console.log("Candidate added successfully")
+                                    console.log(peer.remoteDescription)
+                                })
+                                .catch(e => console.error("Error adding received candidate", e));
+                        } else {
+                            // peer.addIceCandidate({ candidate: "" });
                         }
-
-                        // console.log('offer reviced from ' + data.payload.id);
-                        // console.log('Signaling state: ' + peer.signalingState)
-                        // if (data.payload.offer === null) return;
-
-                        // console.log('got ice from ' + data.payload.id);
-                        // peer.addIceCandidate(data.payload.offer);
-                        // console.log(peer.remoteDescription);
 
                         break;
                     }
                     case 'CONNECTION_RESPONSE': {
 
-                        if(data.payload.error) {
+                        if (data.payload.error) {
                             log(data.payload.error);
                             return;
                         }
 
                         store.id = data.payload.target;
-                        // console.log('set global id ' + data.payload.target);
+                        console.log('set global id ' + data.payload.target);
                         const serverId = data.payload.id;
-                        // console.log('got connection response from ' + data.payload.id);
+                        console.log('got connection response (offer) from ' + data.payload.id);
 
                         peer.setRemoteDescription(data.payload.serverOffer).then(() => remoteDescriptionSet = true);
 
                         peer.onicecandidate = (e) => {
-                            // console.log('candidate found');
+                            console.log('candidate found');
                             store.ws?.send(JSON.stringify({
                                 action: 'SDP_RESPONSE',
                                 payload: {
