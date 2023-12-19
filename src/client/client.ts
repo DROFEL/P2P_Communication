@@ -1,8 +1,9 @@
 import { WebSocket } from "ws";
-// import { RTCPeerConnection, RTCDataChannel } from 'wrtc';
 import wrtc from 'wrtc';
-import { Message } from "./types/Message";
-import { RTCMessage } from "./types/RTCMessage";
+import { Message } from "../types/Message";
+import { RTCMessage } from "../types/RTCMessage";
+import { logger, verbose } from "../logger";
+import { Store } from "../types/clientStore";
 
 const readline = require('readline');
 const rl = readline.createInterface({
@@ -12,16 +13,13 @@ const rl = readline.createInterface({
     prompt: '',
 });
 
-type Store = {
-    ws: WebSocket | undefined,
-    id: number,
-    name: string,
-    lobbyID: string,
-    connection: Map<number, {
-        peer: RTCPeerConnection,
-        dc: RTCDataChannel | undefined,
-    }>
-}
+//By default logger prints info messages to the console and log file and debug messages only to the log file
+//set logging to verbose so that debug messages are shown in the console
+console.log(process.argv.includes('--verbose'));
+rl.setPrompt(`\x1b[35m${'data.name'}\x1b[0m: `);
+rl.prompt();
+logger.info('logging enabled');
+
 const store: Store = {
     name: `user${Math.floor(Math.random() * 1000)}`,
     connection: new Map<number, {
@@ -133,7 +131,8 @@ rl.on('line', (input: string) => {
                 const data: Message = JSON.parse(message.toString());
                 switch (data.action) {
                     case 'CONNECTION_REQUEST': {
-                        // console.log('creating server peer');
+
+                        console.log('creating server peer');
 
                         const peer = new wrtc.RTCPeerConnection({
                             iceServers: [
@@ -147,25 +146,24 @@ rl.on('line', (input: string) => {
                                 }
                             ]
                         });
-                        // console.log('initial connection state' + peer.connectionState);
+                        logger.debug(`initial connection state ${peer.connectionState}`);
 
-
-                        // peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
-                        // peer.onicecandidateerror = (e) => { console.log('ice candidate error '); }
-                        // peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
-                        // peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
-                        // peer.onnegotiationneeded = (e) => { console.log('negotiation needed '); }
+                        peer.onconnectionstatechange = (e) => { logger.debug(`connection state change: ${peer.connectionState}`); }
+                        peer.onicecandidateerror = (e) => { logger.debug(`ice candidate error`, e); }
+                        peer.oniceconnectionstatechange = (e) => { logger.debug(`ice connection state change ${peer.iceConnectionState}`); }
+                        peer.onsignalingstatechange = (e) => { logger.debug(`signaling state change: ${peer.signalingState}`); }
+                        peer.onnegotiationneeded = (e) => { logger.debug(`negotiation needed`); }
 
                         store.connection.set(data.payload.id, {
                             peer: peer,
                             dc: undefined,
                         })
                         peer.ondatachannel = (e) => {
-                            // console.log('data channel created');
+                            logger.debug(`data channel created`);
                             const dc = e.channel;
                             dc.onopen = () => {
                                 Array.from(store.connection).forEach((connection) => {
-                                    if(connection[1].dc !== dc) connection[1].dc?.send(JSON.stringify({
+                                    if (connection[1].dc !== dc) connection[1].dc?.send(JSON.stringify({
                                         name: '',
                                         message: `\x1b[32m${data.payload.name} connected!\x1b[0m`,
                                         senderId: store.id
@@ -194,13 +192,13 @@ rl.on('line', (input: string) => {
                         }
 
                         peer.setRemoteDescription(data.payload.initOffer).then(() => {
-                            // console.log('remote description set');
+                            logger.debug(`remote description set`);
 
                             peer.createAnswer().then((answer) => {
-                                // console.log('answer created');
+                                logger.debug(`answer created`);
 
                                 peer.setLocalDescription(answer).then(() => {
-                                    // console.log('local description set');
+                                    logger.debug(`local description set`);
                                     store.ws?.send(JSON.stringify({
                                         action: 'CONNECTION_RESPONSE',
                                         payload: {
@@ -214,7 +212,7 @@ rl.on('line', (input: string) => {
                                 });
 
                                 peer.onicecandidate = (e) => {
-                                    // console.log('candidate found');
+                                    logger.debug(`candidate found`);
                                     store.ws?.send(JSON.stringify({
                                         action: 'SDP_RESPONSE',
                                         payload: {
@@ -223,17 +221,6 @@ rl.on('line', (input: string) => {
                                             offer: e.candidate
                                         }
                                     } as Message))
-                                    // e.candidate && candidates.push(e.candidate);
-                                    // if (e.candidate === null) {
-                                    //     store.ws?.send(JSON.stringify({
-                                    //         action: 'SDP_RESPONSE',
-                                    //         payload: {
-                                    //             target: data.payload.id,
-                                    //             id: store.id,
-                                    //             offer: candidates
-                                    //         }
-                                    //     } as Message))
-                                    // }
                                 }
                             })
                         })
@@ -242,31 +229,20 @@ rl.on('line', (input: string) => {
                     }
                     case 'SDP_RESPONSE': {
                         const peer = store.connection.get(data.payload.id)?.peer!
-                        // console.log('ice candidate reviced from ' + data.payload.id);
-                        // console.log('Signaling state: ' + peer.signalingState)
-                        // candidates.push(data.payload.offer);
-                        // if (remoteDescriptionSet) {
-                        //     console.log('processing candidates...');
-                        //     while (candidates.length > 0) {
-                        //         if (candidates[0] !== null) {
-                        //             peer.addIceCandidate(candidates[0])
-                        //         }
-                        //         console.log(peer.remoteDescription);
-                        //         candidates.shift();
-                        //     }
-                        // }
+                        logger.debug(`ice candidate reviced from: ${data.payload.id}`);
+                        logger.debug(`Signaling state: ${peer.signalingState}`);
                         if (data.payload.offer) {
                             peer.addIceCandidate(data.payload.offer)
                                 .then(() => {
-                                    // console.log("Candidate added successfully")
-                                    // console.log(data.payload.offer);
-                                    // console.log(peer.remoteDescription)
+                                    logger.debug("Candidate added successfully")
+                                    logger.debug(data.payload.offer);
+                                    logger.debug(peer.remoteDescription)
                                 })
-                                // .catch(e => console.error("Error adding received candidate", e));
-                        } else {
-                            // peer.addIceCandidate({ candidate: "" });
+                                .catch(e => {
+                                    logger.debug(`Offer: ${data.payload.offer}`)
+                                    logger.debug(`Error adding received candidate ${e}`)
+                                });
                         }
-
                         break;
                     }
                     case 'SERVER_INIT_RESPONSE': {
@@ -278,7 +254,7 @@ rl.on('line', (input: string) => {
                     }
                     default: {
                         log('Unrecognized action type! ' + data.action)
-                        // console.log(data);
+                        logger.debug(`Data: ${data}`);
                     }
                 }
             });
@@ -303,9 +279,9 @@ rl.on('line', (input: string) => {
                 console.log(`\x1b[33mConnecting to lobby: ${message} ${chars[connectionLineIndex]} \x1b[0m`);
                 connectionLineIndex = (connectionLineIndex + 1) % 4;
             }, 100)
-            
-             
-            
+
+
+
 
             const peer = new wrtc.RTCPeerConnection({
                 iceServers: [
@@ -327,7 +303,7 @@ rl.on('line', (input: string) => {
 
             peer.createOffer().then((offer) => {
                 peer.setLocalDescription(offer).then(() => {
-                    // console.log('local description set');
+                    logger.debug(`local description set`);
                     store.ws?.send(JSON.stringify({
                         action: 'CONNECTION_REQUEST',
                         payload: {
@@ -340,17 +316,17 @@ rl.on('line', (input: string) => {
                 })
             })
 
-            // peer.onconnectionstatechange = (e) => { console.log('connection state change: ' + peer.connectionState); }
-            // peer.onicecandidateerror = (e) => { console.log('ice candidate error '); }
-            // peer.oniceconnectionstatechange = (e) => { console.log('ice connection state change ' + peer.iceConnectionState); }
-            // peer.onsignalingstatechange = (e) => { console.log('signaling state change: ' + peer.signalingState); }
-            // peer.onnegotiationneeded = (e) => { console.log('negotiation needed '); }
+            peer.onconnectionstatechange = (e) => { logger.debug(`connection state change: ${peer.connectionState}`); }
+            peer.onicecandidateerror = (e) => { logger.debug(`ice candidate error ${e}`); }
+            peer.oniceconnectionstatechange = (e) => { logger.debug(`ice connection state change ${peer.iceConnectionState}`); }
+            peer.onsignalingstatechange = (e) => { logger.debug(`signaling state change: ${peer.signalingState}`); }
+            peer.onnegotiationneeded = (e) => { logger.debug(`negotiation needed`); }
 
 
             let candidates = new Array<RTCIceCandidateInit>();
 
             peer.onicecandidate = (e) => {
-                if(e.candidate) {
+                if (e.candidate) {
                     candidates.push(e.candidate);
                 }
             }
@@ -360,29 +336,19 @@ rl.on('line', (input: string) => {
                 const data: Message = JSON.parse(message.toString());
                 switch (data.action) {
                     case 'SDP_RESPONSE': {
-                        // console.log('ice candidate reviced from ' + data.payload.id);
-                        // console.log('Signaling state: ' + peer.signalingState)
-                        // candidates.push(data.payload.offer);
-                        // if (remoteDescriptionSet) {
-                        //     console.log('processing candidates...');
-                        //     while (candidates.length > 0) {
-                        //         if (candidates[0] !== null) {
-                        //             peer.addIceCandidate(candidates[0])
-                        //         }
-                        //         console.log(peer.remoteDescription);
-                        //         candidates.shift();
-                        //     }
-                        // }
+                        logger.debug(`ice candidate reviced from: ${data.payload.id}`);
+                        logger.debug(`Signaling state: ${peer.signalingState}`);
                         if (data.payload.offer) {
                             peer.addIceCandidate(data.payload.offer)
-                                // .then(() => {
-                                //     console.log("Candidate added successfully")
-                                //     console.log(data.payload.offer);
-                                //     console.log(peer.remoteDescription)
-                                // })
-                                // .catch(e => {
-                                //     console.log(data.payload.offer);
-                                //     console.error("Error adding received candidate", e)});
+                                .then(() => {
+                                    logger.debug("Candidate added successfully")
+                                    logger.debug(data.payload.offer);
+                                    logger.debug(peer.remoteDescription)
+                                })
+                                .catch(e => {
+                                    logger.debug(`Offer: ${data.payload.offer}`)
+                                    logger.debug(`Error adding received candidate ${e}`)
+                                });
                         } else {
                             // peer.addIceCandidate({ candidate: "" });
                         }
@@ -447,6 +413,10 @@ rl.on('line', (input: string) => {
 
                         break;
 
+                    }
+                    default: {
+                        log('Unrecognized action type! ' + data.action)
+                        logger.debug(`Data: ${data}`);
                     }
                 }
             })
